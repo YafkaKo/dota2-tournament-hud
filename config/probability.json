@@ -1,0 +1,38 @@
+{
+  "_comment": "Эвристическая модель вероятности победы, НЕ предсказание Dota Plus. Файл перечитывается сервером на лету. Подробности — server/probability.js.",
+
+  "bias": 0,
+  "minMinutes": 1,
+
+  "netWorth": {
+    "_comment": "вклад = weight * (разница золота / per) / (1 + минуты / timeScaleMin)",
+    "weight": 0.18,
+    "per": 1000,
+    "timeScaleMin": 20
+  },
+
+  "experience": {
+    "_comment": "то же для опыта; если в GSI нет hero.xp, опыт оценивается как XPM * минуты",
+    "weight": 0.10,
+    "per": 1000,
+    "timeScaleMin": 20
+  },
+
+  "buildings": {
+    "_comment": "вклад = weight * (живые строения Radiant - живые строения Dire), башня = towerValue, казарма = barracksValue",
+    "weight": 0.12,
+    "towerValue": 1,
+    "barracksValue": 2
+  },
+
+  "kills": {
+    "_comment": "слабый признак: золото уже учитывает киллы",
+    "weight": 0.03,
+    "timeScaleMin": 20
+  },
+
+  "clamp": {
+    "min": 3,
+    "max": 97
+  }
+}

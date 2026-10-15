@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0818">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Пульт">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Пульт трансляции</title>
+<link rel="stylesheet" href="/css/caster.css">
+</head>
+<body>
+
+<!-- Шапка: что сейчас в эфире. Видна на всех вкладках. -->
+<header class="top">
+  <div class="top__main">
+    <div class="onair">
+      <span class="onair__label">В эфире</span>
+      <span class="onair__scene" id="onairScene">—</span>
+    </div>
+    <p class="match" id="matchLine">Ждём данные из игры</p>
+  </div>
+  <div class="status" aria-live="polite">
+    <span class="dot" id="dotWs" title="связь с сервером"></span>
+    <span class="dot" id="dotGsi" title="данные из игры"></span>
+  </div>
+</header>
+
+<div class="offline" id="offline" hidden>Нет связи с сервером. Переподключаюсь…</div>
+
+<main>
+
+  <!-- ============================ ЭФИР ============================ -->
+  <section class="panel" id="tab-air" data-tab="air">
+    <h2>Сцена</h2>
+    <div class="scenes">
+      <button type="button" class="scene" data-scene="auto"><b>Игра</b><span>драфт включится сам</span></button>
+      <button type="button" class="scene" data-scene="starting"><b>Скоро начнём</b><span>заставка с отсчётом</span></button>
+      <button type="button" class="scene" data-scene="break"><b>Перерыв</b><span>технический перерыв</span></button>
+      <button type="button" class="scene" data-scene="bracket"><b>Сетка</b><span>турнирная сетка</span></button>
+      <button type="button" class="scene" data-scene="results"><b>Итог-заставка</b><span>крупно победитель</span></button>
+      <button type="button" class="scene" data-scene="scoreboard"><b>Таблица счёта</b><span>все игроки, живая</span></button>
+      <button type="button" class="scene scene--wide" data-scene="blank"><b>Чистый экран</b><span>только игра, без графики</span></button>
+    </div>
+
+    <h2>Главное</h2>
+    <label class="tile">
+      <input type="checkbox" data-path="probability.show">
+      <span class="tile__switch" aria-hidden="true"></span>
+      <span class="tile__body">
+        <span class="tile__title">Вероятность победы</span>
+        <span class="tile__desc" id="probPreview">Появится, когда начнётся игра</span>
+        <span class="tile__desc tile__desc--strong" id="probCmp" hidden></span>
+      </span>
+    </label>
+
+    <label class="tile">
+      <input type="checkbox" data-path="mapResults.show">
+      <span class="tile__switch" aria-hidden="true"></span>
+      <span class="tile__body">
+        <span class="tile__title">Итоги карты</span>
+        <span class="tile__desc" id="resPreview">Данных из игры пока нет</span>
+        <span class="tile__desc tile__desc--muted" id="odStatus"></span>
+      </span>
+    </label>
+  </section>
+
+  <!-- ============================ ПЛАШКИ ============================ -->
+  <section class="panel" id="tab-overlays" data-tab="overlays">
+    <h2>Поверх игры</h2>
+    <div class="switches">
+      <label class="sw"><span><b>Вся графика</b><i>верхняя лента и всё остальное</i></span><input type="checkbox" data-path="showHud"><em aria-hidden="true"></em></label>
+      <label class="sw"><span><b>Полоса золота</b><i>разница нетворса</i></span><input type="checkbox" data-path="panels.networth"><em aria-hidden="true"></em></label>
+      <label class="sw"><span><b>Рошан</b><i>жив или таймер</i></span><input type="checkbox" data-path="panels.objectives"><em aria-hidden="true"></em></label>
+      <label class="sw"><span><b>Составы команд</b><i>большая панель, только на паузах</i></span><input type="checkbox" data-path="panels.rosters"><em aria-hidden="true"></em></label>
+      <label class="sw"><span><b>Комментаторы</b><i>плашка с именами</i></span><input type="checkbox" data-path="casters.show"><em aria-hidden="true"></em></label>
+      <label class="sw"><span><b>Trivia</b><i id="triviaHint">текст — во вкладке «Тексты»</i></span><input type="checkbox" data-path="trivia.show"><em aria-hidden="true"></em></label>
+    </div>
+    <button type="button" class="ghost" id="hideAll">Убрать все плашки</button>
+  </section>
+
+  <!-- ============================ МАТЧ ============================ -->
+  <section class="panel" id="tab-match" data-tab="match">
+    <h2>Счёт серии</h2>
+    <div class="series">
+      <div class="team team--rad">
+        <input class="team__name" data-path="radiant.name" aria-label="Название Radiant" autocomplete="off">
+        <div class="team__score">
+          <button type="button" data-inc="series.radiantWins" data-by="-1" aria-label="Минус победа Radiant">−</button>
+          <b id="radWins">0</b>
+          <button type="button" data-inc="series.radiantWins" data-by="1" aria-label="Плюс победа Radiant">+</button>
+        </div>
+      </div>
+      <div class="team team--dire">
+        <input class="team__name" data-path="dire.name" aria-label="Название Dire" autocomplete="off">
+        <div class="team__score">
+          <button type="button" data-inc="series.direWins" data-by="-1" aria-label="Минус победа Dire">−</button>
+          <b id="direWins">0</b>
+          <button type="button" data-inc="series.direWins" data-by="1" aria-label="Плюс победа Dire">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label class="field">
+        <span>Формат</span>
+        <select data-path="series.format">
+          <option value="bo1">Bo1</option>
+          <option value="bo2">Bo2</option>
+          <option value="bo3">Bo3</option>
+          <option value="bo5">Bo5</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Победитель (заставка)</span>
+        <select data-path="results.winner">
+          <option value="radiant">Radiant</option>
+          <option value="dire">Dire</option>
+        </select>
+      </label>
+    </div>
+    <button type="button" class="ghost" id="swapTeams">Команды поменялись сторонами</button>
+
+    <h2>Турнир</h2>
+    <label class="field"><span>Стадия</span><input data-path="stage" autocomplete="off"></label>
+
+    <h2>Карта</h2>
+    <div class="danger">
+      <button type="button" id="resetMatch">Сбросить матч</button>
+      <p>Снимает итоги и удаляет снимки вероятности. Команды и счёт серии остаются.
+         Новая карта сбрасывается сама, когда в игре меняется номер матча.</p>
+    </div>
+  </section>
+
+  <!-- ============================ ТЕКСТЫ ============================ -->
+  <section class="panel" id="tab-texts" data-tab="texts">
+    <h2>Trivia</h2>
+    <label class="field"><span>Заголовок</span><input data-path="trivia.title" autocomplete="off"></label>
+    <label class="field"><span>Текст</span><textarea data-path="trivia.text" rows="3"></textarea></label>
+    <div class="row">
+      <button type="button" id="triviaToggle">Показать</button>
+      <button type="button" class="ghost" id="triviaSave">В заготовки</button>
+    </div>
+    <ul class="library" id="triviaLibrary"></ul>
+
+    <h2>Комментаторы</h2>
+    <div class="row">
+      <label class="field"><span>Слева</span><input data-path="casters.left" autocomplete="off"></label>
+      <label class="field"><span>Справа</span><input data-path="casters.right" autocomplete="off"></label>
+    </div>
+    <label class="field"><span>Подпись над именами</span><input data-path="casters.topic" placeholder="Комментируют" autocomplete="off"></label>
+
+    <h2>Заставки</h2>
+    <label class="field"><span>Заголовок «скоро начнём»</span><input data-path="starting.title" autocomplete="off"></label>
+    <div class="field">
+      <span>Обратный отсчёт</span>
+      <div class="chips">
+        <button type="button" data-countdown="5">5 мин</button>
+        <button type="button" data-countdown="10">10 мин</button>
+        <button type="button" data-countdown="15">15 мин</button>
+        <button type="button" class="ghost" data-countdown="0">Убрать</button>
+      </div>
+      <span class="hint" id="countdownInfo"></span>
+    </div>
+    <label class="field"><span>Текст перерыва</span><input data-path="breakText" autocomplete="off"></label>
+    <label class="field"><span>Бегущая строка</span><input data-path="ticker" placeholder="пусто — выключена" autocomplete="off"></label>
+  </section>
+
+</main>
+
+<!-- Нижние вкладки: на телефоне так удобнее большим пальцем -->
+<nav class="tabs" aria-label="Разделы пульта">
+  <button type="button" data-goto="air" class="is-active">Эфир</button>
+  <button type="button" data-goto="overlays">Плашки</button>
+  <button type="button" data-goto="match">Матч</button>
+  <button type="button" data-goto="texts">Тексты</button>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/js/dota.js"></script>
+<script src="/js/caster.js"></script>
+</body>
+</html>

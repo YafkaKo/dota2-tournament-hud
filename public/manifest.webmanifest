@@ -1,0 +1,13 @@
+{
+  "name": "Пульт трансляции",
+  "short_name": "Пульт",
+  "start_url": "/control",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0818",
+  "theme_color": "#0B0818",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

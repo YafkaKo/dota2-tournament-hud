@@ -1,0 +1,18 @@
+{
+  "name": "arena-hotkey-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Глобальные хоткеи на ПК с Dota 2: переключение сцен OBS и плашек HUD",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "scenes": "node agent.js --list-scenes"
+  },
+  "dependencies": {
+    "obs-websocket-js": "^5.0.6",
+    "uiohook-napi": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
