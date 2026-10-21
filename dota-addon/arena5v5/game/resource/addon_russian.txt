@@ -1,0 +1,10 @@
+"lang"
+{
+	"Language"	"russian"
+	"Tokens"
+	{
+		"addon_game_name"	"Arena 5x5 — турнир"
+		"DOTA_Custom1"	"Наблюдатели"
+		"DOTA_TEAM_CUSTOM_1"	"Наблюдатели"
+	}
+}

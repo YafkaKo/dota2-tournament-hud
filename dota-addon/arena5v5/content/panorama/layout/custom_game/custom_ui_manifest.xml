@@ -1,0 +1,6 @@
+<root>
+	<Panel>
+		<!-- Экран подготовки: команды, капитаны, драфт Captains Mode -->
+		<CustomUIElement type="GameSetup" layoutfile="file://{resources}/layout/custom_game/arena_setup.xml" />
+	</Panel>
+</root>

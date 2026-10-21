@@ -1,0 +1,92 @@
+<root>
+	<styles>
+		<include src="s2r://panorama/styles/dotastyles.vcss_c" />
+		<include src="file://{resources}/styles/custom_game/arena_setup.css" />
+	</styles>
+	<scripts>
+		<include src="file://{resources}/scripts/custom_game/arena_setup.js" />
+	</scripts>
+
+	<Panel class="ArenaRoot">
+		<Panel class="Header">
+			<Label class="Title" text="ARENA 5×5" />
+			<Label id="PhaseLabel" class="Phase" text="Выбор команд" />
+			<Label id="TimerLabel" class="Timer" text="" />
+		</Panel>
+
+		<!-- ====================== Выбор команд ====================== -->
+		<Panel id="TeamsView" class="View">
+			<Panel class="TeamsRow">
+				<Panel class="TeamColumn Radiant">
+					<Label class="TeamTitle" text="RADIANT" />
+					<Panel id="RadiantList" class="PlayerList" />
+					<Button class="ArenaButton" onactivate="JoinTeam(2)"><Label text="Играть за Radiant" /></Button>
+					<Button id="RadiantCaptainBtn" class="ArenaButton Ghost" onactivate="ClaimCaptain()"><Label text="Я капитан" /></Button>
+				</Panel>
+
+				<Panel class="TeamColumn Neutral">
+					<Label class="TeamTitle" text="БЕЗ КОМАНДЫ" />
+					<Label class="Hint" text="Наблюдатель для трансляции остаётся здесь" id="UnassignedHint" />
+					<Panel id="UnassignedList" class="PlayerList" />
+					<Button class="ArenaButton Ghost" onactivate="JoinTeam(5)"><Label text="Выйти из команды" /></Button>
+					<Panel id="ObserverBlock" class="ObserverBlock">
+						<Label class="TeamTitle Small" text="НАБЛЮДАТЕЛИ" />
+						<Panel id="ObserverList" class="PlayerList" />
+						<Button class="ArenaButton Ghost" onactivate="JoinTeam(6)"><Label text="Стать наблюдателем" /></Button>
+					</Panel>
+				</Panel>
+
+				<Panel class="TeamColumn Dire">
+					<Label class="TeamTitle" text="DIRE" />
+					<Panel id="DireList" class="PlayerList" />
+					<Button class="ArenaButton" onactivate="JoinTeam(3)"><Label text="Играть за Dire" /></Button>
+					<Button id="DireCaptainBtn" class="ArenaButton Ghost" onactivate="ClaimCaptain()"><Label text="Я капитан" /></Button>
+				</Panel>
+			</Panel>
+
+			<Panel id="HostControls" class="HostControls">
+				<Label class="Hint" text="Управление хоста:" />
+				<Button id="FirstPickBtn" class="ArenaButton Ghost" onactivate="ToggleFirstPick()"><Label id="FirstPickLabel" text="Первый выбор: Radiant" /></Button>
+				<Button class="ArenaButton Ghost" onactivate="AutoTeams()"><Label text="Раскидать по командам" /></Button>
+				<Button class="ArenaButton Ghost" onactivate="SkipDraft()"><Label text="Без драфта (All Pick)" /></Button>
+				<Button class="ArenaButton Accent" onactivate="StartDraft()"><Label text="Начать драфт" /></Button>
+			</Panel>
+			<Label id="WaitHostLabel" class="Hint Center" text="Ждём, когда хост начнёт драфт" />
+		</Panel>
+
+		<!-- ====================== Драфт ====================== -->
+		<Panel id="DraftView" class="View">
+			<Panel class="Board">
+				<Panel class="BoardSide Radiant">
+					<Label id="RadiantCaptainLabel" class="CaptainLabel" text="" />
+					<Panel id="RadiantPicks" class="Picks" />
+					<Panel id="RadiantBans" class="Bans" />
+					<Label id="RadiantReserve" class="Reserve" text="" />
+				</Panel>
+				<Panel class="BoardCenter">
+					<Label id="TurnLabel" class="Turn" text="" />
+					<Label id="MainTimeLabel" class="BigTimer" text="" />
+					<Label id="StepLabel" class="Hint Center" text="" />
+				</Panel>
+				<Panel class="BoardSide Dire">
+					<Label id="DireCaptainLabel" class="CaptainLabel" text="" />
+					<Panel id="DirePicks" class="Picks" />
+					<Panel id="DireBans" class="Bans" />
+					<Label id="DireReserve" class="Reserve" text="" />
+				</Panel>
+			</Panel>
+
+			<Panel class="SearchRow">
+				<TextEntry id="SearchEntry" class="Search" placeholder="Поиск героя…" ontextentrychange="FilterHeroes()" />
+				<Label id="YourTurnLabel" class="YourTurn" text="" />
+			</Panel>
+
+			<Panel id="HeroGrid" class="HeroGrid">
+				<Panel class="AttrRow"><Label class="AttrTitle Str" text="СИЛА" /><Panel id="Grid_strength" class="AttrHeroes" /></Panel>
+				<Panel class="AttrRow"><Label class="AttrTitle Agi" text="ЛОВКОСТЬ" /><Panel id="Grid_agility" class="AttrHeroes" /></Panel>
+				<Panel class="AttrRow"><Label class="AttrTitle Int" text="ИНТЕЛЛЕКТ" /><Panel id="Grid_intellect" class="AttrHeroes" /></Panel>
+				<Panel class="AttrRow"><Label class="AttrTitle All" text="УНИВЕРСАЛЫ" /><Panel id="Grid_all" class="AttrHeroes" /></Panel>
+			</Panel>
+		</Panel>
+	</Panel>
+</root>

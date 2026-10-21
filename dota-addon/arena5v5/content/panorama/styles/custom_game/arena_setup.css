@@ -1,0 +1,113 @@
+/* Экран подготовки Arena 5x5 — в тон худу: тёмно-фиолетовый, яркие акценты сторон. */
+
+.ArenaRoot {
+	width: 100%;
+	height: 100%;
+	flow-children: down;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #140c24 ), to( #07040e ) );
+	padding: 32px 48px;
+	font-family: Radiance, "Noto Sans", sans-serif;
+	color: #ece8f5;
+}
+
+.Header { width: 100%; flow-children: right; margin-bottom: 20px; }
+.Title { font-size: 34px; font-weight: black; color: #b48cff; letter-spacing: 3px; }
+.Phase { font-size: 24px; margin-left: 28px; vertical-align: center; color: #d9cff0; }
+.Timer { font-size: 24px; horizontal-align: right; vertical-align: center; }
+
+.View { width: 100%; height: fill-parent-flow( 1 ); flow-children: down; }
+
+/* ---------------- команды ---------------- */
+.TeamsRow { width: 100%; height: fill-parent-flow( 1 ); flow-children: right; }
+.TeamColumn {
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	flow-children: down;
+	margin: 0 10px;
+	padding: 18px;
+	border-radius: 10px;
+	background-color: #1c1330cc;
+	border: 1px solid #3a2a5c;
+}
+.TeamColumn.Radiant { border-top: 4px solid #3fd18b; }
+.TeamColumn.Dire { border-top: 4px solid #ff5d5d; }
+.TeamColumn.Neutral { border-top: 4px solid #8d7bb5; }
+
+.TeamTitle { font-size: 22px; font-weight: bold; letter-spacing: 2px; margin-bottom: 10px; }
+.TeamTitle.Small { font-size: 16px; margin-top: 16px; }
+.Radiant .TeamTitle { color: #3fd18b; }
+.Dire .TeamTitle { color: #ff5d5d; }
+
+.PlayerList { width: 100%; flow-children: down; margin-bottom: 12px; }
+.PlayerRow { width: 100%; height: 40px; flow-children: right; padding: 4px 8px; margin-bottom: 4px; border-radius: 6px; background-color: #2a1f45; }
+.PlayerRow.Local { background-color: #4a3480; }
+.PlayerRow Label { font-size: 18px; vertical-align: center; margin-left: 10px; }
+.Avatar { width: 32px; height: 32px; vertical-align: center; border-radius: 4px; }
+
+.ObserverBlock { width: 100%; flow-children: down; }
+
+.Hint { font-size: 15px; color: #a99cc6; margin-bottom: 8px; }
+.Hint.Center { horizontal-align: center; text-align: center; }
+
+.ArenaButton {
+	width: 100%;
+	height: 42px;
+	margin-top: 8px;
+	border-radius: 6px;
+	background-color: #6a3ff0;
+	transition-property: background-color, brightness;
+	transition-duration: 0.12s;
+}
+.ArenaButton:hover { brightness: 1.25; }
+.ArenaButton Label { font-size: 17px; font-weight: bold; horizontal-align: center; vertical-align: center; color: white; }
+.ArenaButton.Ghost { background-color: #2c2148; border: 1px solid #5b468f; }
+.ArenaButton.Accent { background-color: #f0a53f; }
+.ArenaButton.Accent Label { color: #1a1027; }
+
+.HostControls { width: 100%; flow-children: right; margin-top: 14px; padding: 0 10px; }
+.HostControls .Hint { vertical-align: center; margin-right: 12px; margin-bottom: 0; }
+.HostControls .ArenaButton { width: 230px; margin-right: 10px; margin-top: 0; }
+
+/* ---------------- драфт ---------------- */
+.Board { width: 100%; height: 210px; flow-children: right; }
+.BoardSide { width: fill-parent-flow( 1 ); height: 100%; flow-children: down; padding: 10px; border-radius: 10px; background-color: #1c1330cc; }
+.BoardSide.Radiant { border-left: 4px solid #3fd18b; }
+.BoardSide.Dire { border-right: 4px solid #ff5d5d; }
+.BoardSide.Dire .Picks, .BoardSide.Dire .Bans, .BoardSide.Dire .CaptainLabel, .BoardSide.Dire .Reserve { horizontal-align: right; }
+
+.BoardCenter { width: 300px; height: 100%; flow-children: down; padding-top: 18px; }
+.Turn { font-size: 26px; font-weight: bold; horizontal-align: center; }
+.Turn.RadiantTurn { color: #3fd18b; }
+.Turn.DireTurn { color: #ff5d5d; }
+.BigTimer { font-size: 64px; font-weight: black; horizontal-align: center; color: #ffffff; }
+
+.CaptainLabel { font-size: 15px; color: #c7bbe3; margin-bottom: 6px; }
+.Reserve { font-size: 15px; color: #f0a53f; margin-top: 6px; }
+
+.Picks { flow-children: right; }
+.Bans { flow-children: right; margin-top: 8px; }
+.PickSlot { width: 72px; height: 96px; margin-right: 6px; border-radius: 4px; background-color: #2a1f45; border: 1px solid #4b3a74; }
+.BanSlot { width: 44px; height: 26px; margin-right: 4px; border-radius: 3px; background-color: #241a3a; }
+.SlotImg { width: 100%; height: 100%; }
+.BanSlot .SlotImg { saturation: 0; brightness: 0.6; }
+
+.SearchRow { width: 100%; flow-children: right; margin: 14px 0 8px 0; }
+.Search { width: 360px; height: 38px; font-size: 18px; padding: 6px 10px; border-radius: 6px; background-color: #22183a; border: 1px solid #5b468f; color: white; }
+.YourTurn { font-size: 22px; font-weight: bold; color: #f0a53f; margin-left: 24px; vertical-align: center; }
+
+.HeroGrid { width: 100%; height: fill-parent-flow( 1 ); flow-children: down; overflow: squish scroll; }
+.AttrRow { width: 100%; flow-children: down; margin-bottom: 8px; }
+.AttrTitle { font-size: 14px; font-weight: bold; letter-spacing: 2px; margin-bottom: 4px; }
+.AttrTitle.Str { color: #ff6b6b; }
+.AttrTitle.Agi { color: #5fe08a; }
+.AttrTitle.Int { color: #59b8ff; }
+.AttrTitle.All { color: #e8c35a; }
+.AttrHeroes { width: 100%; flow-children: right-wrap; }
+
+.HeroCard { width: 64px; height: 100px; margin: 0 4px 4px 0; flow-children: down; opacity: 0.55; transition-property: opacity, transform, brightness; transition-duration: 0.1s; }
+.HeroCard.Clickable { opacity: 1; }
+.HeroCard.Clickable:hover { transform: scale3d( 1.08, 1.08, 1 ); brightness: 1.3; }
+.HeroImg { width: 64px; height: 84px; border-radius: 3px; }
+.HeroName { width: 100%; font-size: 10px; text-align: center; color: #d9cff0; text-overflow: clip; }
+.HeroCard.Picked, .HeroCard.Banned { opacity: 0.18; saturation: 0; }
+.HeroCard.Filtered { visibility: collapse; }

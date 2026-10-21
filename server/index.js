@@ -39,7 +39,7 @@ let probability = null;        // последняя посчитанная ве
 // Защита от двух источников данных сразу. Если параллельно с игрой забыли
 // выключить имитатор или данные шлют два клиента с разными матчами, сервер
 // раньше прыгал между ними на каждом пакете и сбрасывал состояние матча.
-const sources = { realAt: 0, mockAt: 0, currentIdAt: 0, currentFromMock: false, conflictAt: 0, conflictId: null };
+const sources = { realAt: 0, mockAt: 0, customAt: 0, currentIdAt: 0, currentFromMock: false, conflictAt: 0, conflictId: null };
 const gsiLog = new GsiLog(CONFIG.gsiLog, ROOT);
 
 // Модель вероятности перечитывается при изменении файла — удобно подбирать коэффициенты.
@@ -138,6 +138,12 @@ function loadModel() {
 const opendota = new OpenDotaEnricher(CONFIG.opendota);
 
 function startEnrichment() {
+  // Матчи кастомки не попадают в OpenDota, а вся статистика и так приходит из игры.
+  if (match.live && match.live.provider && match.live.provider.custom) {
+    match.setEnrichment({ state: 'off', message: 'Кастомка Arena 5x5: статистика приходит из игры, OpenDota не нужна' }, null, opendota.constants);
+    pushMatch();
+    return;
+  }
   opendota.start(match.matchId, (status, data) => {
     match.setEnrichment(status, data, opendota.constants);
     pushMatch();
@@ -233,6 +239,12 @@ app.post(['/gsi', '/'], (req, res) => {
 function checkSource(body) {
   const now = Date.now();
   const isMock = !!(body.provider && body.provider.mock);
+  // Кастомка Arena 5x5 шлёт полные данные сама (provider.custom). Пока она в эфире,
+  // пакеты обычного клиента Dota (GSI наблюдателя/игрока) игнорируем — иначе они
+  // перемешаются с данными кастомки.
+  const isCustom = !!(body.provider && body.provider.custom);
+  if (isCustom && body.map && body.map.game_state) sources.customAt = now;
+  if (!isCustom && !isMock && now - sources.customAt < 10000) return 'ignored: идут данные из кастомки Arena 5x5';
 
   if (isMock) {
     sources.mockAt = now;
