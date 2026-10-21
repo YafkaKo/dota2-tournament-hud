@@ -3,7 +3,8 @@
  * Нужен, чтобы верстать и репетировать без живого матча.
  *
  *   node tools/mock-gsi.js                 — матч в разгаре
- *   node tools/mock-gsi.js --draft         — стадия драфта
+ *   node tools/mock-gsi.js --draft         — драфт Captain's Mode: баны и пики по фазам,
+ *                                            основное и резервное время (--speed ускоряет)
  *   node tools/mock-gsi.js --end           — конец карты: 15 с игры, итоги, затем
  *                                            урезанные пакеты, как после выхода в меню
  *   node tools/mock-gsi.js --speed=10      — 10 игровых секунд за секунду (для сравнения вероятности)
@@ -49,10 +50,110 @@ const ITEMS = [
   'item_force_staff', 'item_magic_wand', 'item_aghanims_shard', 'item_desolator'
 ];
 
+// ---------------------------------------------------------------- драфт Captain's Mode
+
+// Порядок ходов. Это приближение к CM патчей 7.3x: 7 банов и 5 пиков у каждой
+// команды, баны и пики идут фазами и чередуются. Если в актуальном патче порядок
+// другой, поправьте этот массив — оверлей от него не зависит, он рисует то, что прислала игра.
+// A — команда первого выбора (здесь Radiant), B — вторая.
+const CM_ORDER = [
+  'bA', 'bB', 'bA', 'bB', 'bA', 'bB', 'bB',   // баны 1
+  'pA', 'pB',                                 // пики 1
+  'bA', 'bA', 'bB',                           // баны 2
+  'pB', 'pA', 'pA', 'pB', 'pB', 'pA',         // пики 2
+  'bA', 'bB', 'bA', 'bB',                     // баны 3
+  'pA', 'pB'                                  // пики 3
+];
+// Сколько «думает» капитан на каждом ходу, секунд. На 3-м и 13-м ходу дольше
+// основного времени — так видно, как тратится резерв.
+const THINK = [6, 7, 36, 5, 8, 6, 7, 12, 9, 6, 5, 7, 33, 8, 10, 6, 9, 11, 5, 6, 7, 5, 14, 40];
+const MAIN_TIME = 30;
+const RESERVE_TIME = 130;
+const STRATEGY_TIME = 30;
+
+const DRAFT_POOL = [
+  ...HEROES,
+  'npc_dota_hero_tinker', 'npc_dota_hero_storm_spirit', 'npc_dota_hero_earthshaker', 'npc_dota_hero_mars',
+  'npc_dota_hero_shadow_shaman', 'npc_dota_hero_rubick', 'npc_dota_hero_puck', 'npc_dota_hero_morphling',
+  'npc_dota_hero_enigma', 'npc_dota_hero_faceless_void', 'npc_dota_hero_lion', 'npc_dota_hero_magnataur',
+  'npc_dota_hero_sniper', 'npc_dota_hero_bane'
+];
+
+const cm = {
+  step: 0, spent: 0, main: MAIN_TIME,
+  reserve: { 2: RESERVE_TIME, 3: RESERVE_TIME },
+  teams: { 2: { picks: [], bans: [] }, 3: { picks: [], bans: [] } },
+  strategyLeft: null, used: 0
+};
+
+function cmTeam(code) { return code[1] === 'A' ? 2 : 3; }
+
+/** Один игровой момент драфта (1 секунда). */
+function cmTick() {
+  if (cm.strategyLeft !== null) {
+    cm.strategyLeft -= 1;
+    if (cm.strategyLeft <= 0) {
+      console.log('→ стратегия закончилась, драфт начинается заново');
+      Object.assign(cm, { step: 0, spent: 0, main: MAIN_TIME, reserve: { 2: RESERVE_TIME, 3: RESERVE_TIME },
+        teams: { 2: { picks: [], bans: [] }, 3: { picks: [], bans: [] } }, strategyLeft: null, used: 0 });
+    }
+    return;
+  }
+  const code = CM_ORDER[cm.step];
+  const team = cmTeam(code);
+  cm.spent += 1;
+  if (cm.main > 0) cm.main -= 1;
+  else cm.reserve[team] = Math.max(0, cm.reserve[team] - 1);
+
+  const outOfTime = cm.main <= 0 && cm.reserve[team] <= 0;
+  if (cm.spent >= THINK[cm.step] || outOfTime) {
+    const hero = DRAFT_POOL[cm.used++ % DRAFT_POOL.length];
+    const list = code[0] === 'p' ? cm.teams[team].picks : cm.teams[team].bans;
+    list.push(hero);
+    console.log(`→ ход ${cm.step + 1}/${CM_ORDER.length}: ${team === 2 ? 'Radiant' : 'Dire'} ${code[0] === 'p' ? 'пикает' : 'банит'} ${hero.replace('npc_dota_hero_', '')}` +
+      (cm.main <= 0 ? ` (резерв ${team === 2 ? 'Radiant' : 'Dire'}: ${cm.reserve[team]} с)` : ''));
+    cm.step += 1;
+    cm.spent = 0;
+    cm.main = MAIN_TIME;
+    if (cm.step >= CM_ORDER.length) {
+      cm.strategyLeft = STRATEGY_TIME;
+      console.log('→ драфт окончен, время стратегии');
+    }
+  }
+}
+
+function draftBlock() {
+  const teamBlock = (team) => {
+    const t = cm.teams[team];
+    const out = { home_team: team === 2 };
+    for (let i = 0; i < 5; i++) {
+      const name = t.picks[i] || '';
+      out[`pick${i}_id`] = name ? HERO_IDS[HEROES.indexOf(name)] ?? 100 + i : -1;
+      out[`pick${i}_class`] = name;
+    }
+    for (let i = 0; i < 7; i++) {
+      const name = t.bans[i] || '';
+      out[`ban${i}_id`] = name ? 200 + i : -1;
+      out[`ban${i}_class`] = name;
+    }
+    return out;
+  };
+  const code = CM_ORDER[Math.min(cm.step, CM_ORDER.length - 1)];
+  const done = cm.strategyLeft !== null;
+  return {
+    activeteam: done ? 0 : cmTeam(code),
+    pick: !done && code[0] === 'p',
+    activeteam_time_remaining: done ? 0 : cm.main,
+    radiant_bonus_time: cm.reserve[2],
+    dire_bonus_time: cm.reserve[3],
+    team2: teamBlock(2),
+    team3: teamBlock(3)
+  };
+}
+
 let clock = DRAFT ? -90 : Number(args.start ?? (END ? 2280 : 620));
 let radKills = END ? 31 : 12;
 let direKills = END ? 19 : 9;
-let draftStep = 0;
 let tick = 0;
 let pausedFor = 0;
 let phase = 'game';            // game | post | menu
@@ -144,36 +245,16 @@ function buildings() {
   };
 }
 
-function draftBlock() {
-  const pick = (team, n) => {
-    const out = { home_team: team === 2 };
-    for (let i = 0; i < 5; i++) {
-      out[`pick${i}_class`] = i < n ? HEROES[(team === 2 ? 0 : 5) + i] : '';
-      out[`pick${i}_id`] = i < n ? HERO_IDS[(team === 2 ? 0 : 5) + i] : -1;
-    }
-    for (let i = 0; i < 7; i++) {
-      out[`ban${i}_class`] = i < Math.min(7, n + 2) ? HEROES[(i + team) % HEROES.length] : '';
-    }
-    return out;
-  };
-  const picked = Math.min(5, Math.floor(draftStep / 2));
-  return {
-    activeteam: draftStep % 2 === 0 ? 2 : 3,
-    pick: draftStep % 3 !== 0,
-    activeteam_time_remaining: 30 - (draftStep % 30),
-    team2: pick(2, picked),
-    team3: pick(3, Math.max(0, picked - 1))
-  };
-}
-
 function gameState() {
-  if (DRAFT) return 'DOTA_GAMERULES_STATE_HERO_SELECTION';
+  if (DRAFT) return cm.strategyLeft !== null ? 'DOTA_GAMERULES_STATE_STRATEGY_TIME' : 'DOTA_GAMERULES_STATE_HERO_SELECTION';
   if (phase === 'post') return 'DOTA_GAMERULES_STATE_POST_GAME';
   return clock < 0 ? 'DOTA_GAMERULES_STATE_PRE_GAME' : 'DOTA_GAMERULES_STATE_GAME_IN_PROGRESS';
 }
 
 function payload() {
-  const provider = { name: 'Dota 2', appid: 570, version: 47, timestamp: Math.floor(Date.now() / 1000) };
+  // mock: true — по этой метке сервер отличает имитатор от настоящей игры
+  // и не даёт им смешаться, если имитатор забыли выключить.
+  const provider = { name: 'Dota 2', appid: 570, version: 47, timestamp: Math.floor(Date.now() / 1000), mock: true };
 
   // После выхода из матча клиент шлёт только provider — ровно на этом раньше
   // и пропадали итоги карты.
@@ -244,7 +325,7 @@ function step() {
       }
     }
   }
-  draftStep += 1;
+  if (DRAFT) for (let s = 0; s < SPEED; s++) cmTick();
   send();
 }
 

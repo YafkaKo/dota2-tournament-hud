@@ -924,3 +924,74 @@ body.obs .conn { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .winprob, .winprob__fill, .layer-full.mapres { transition: none; }
 }
+
+/* ------------------------------------------------------- драфт: таймер и текущий ход */
+
+.draft__side { display: flex; flex-direction: column; gap: 6px; padding: 6px 0; transition: opacity .25s; }
+.draft__side--dire { align-items: flex-end; }
+.draft__head:has(.is-active) .draft__side:not(.is-active) { opacity: .45; }
+.draft__side.is-active .draft__team { text-shadow: 0 0 28px currentColor; }
+
+.draft__reserve { font-size: 16px; font-weight: 600; color: var(--muted); }
+.draft__reserve.is-ticking { color: var(--lime); }
+
+.draft__clock { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 260px; }
+.draft__timer-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.draft__clock.is-reserve .draft__timer { color: #FF8FBC; text-shadow: 0 0 34px rgba(255,61,138,.45); }
+.draft__clock.is-reserve .draft__timer-label { color: #FF8FBC; }
+.draft__clock.is-paused .draft__timer { color: var(--muted); text-shadow: none; }
+
+.pick.is-current { opacity: 1; }
+.pick.is-current .pick__img {
+  background: rgba(216,255,62,.12);
+  box-shadow: inset 0 0 0 2px var(--lime);
+  animation: draft-pulse 1.2s ease-in-out infinite;
+}
+.pick.is-current .pick__name { color: var(--lime); font-size: 22px; font-weight: 600; }
+.ban.is-current {
+  filter: none; opacity: 1;
+  background: rgba(216,255,62,.12);
+  box-shadow: inset 0 0 0 2px var(--lime);
+  animation: draft-pulse 1.2s ease-in-out infinite;
+}
+@keyframes draft-pulse { 50% { opacity: .55; } }
+
+/* ------------------------------------------------------- свой фон заставок */
+
+.scene-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #05040C; }
+.scene-bg__media {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  background: center / cover no-repeat;
+  object-fit: cover;
+}
+.scene-bg__dim { position: absolute; inset: 0; background: #06050D; opacity: .4; }
+
+/* Когда фон свой, сцены не рисуют стандартный градиент поверх него. */
+body.has-custom-bg .layer-full.pane,
+body.has-custom-bg .layer-full.draft { background: transparent; }
+body.has-custom-bg .layer-full.pane::after,
+body.has-custom-bg .layer-full.draft::after { display: none; }
+.layer-full { z-index: 1; }
+
+/* ------------------------------------------------------- чистый экран */
+
+/* Ничего не рисуем: в OBS видна только игра. */
+body.is-blank > * { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pick.is-current .pick__img, .ban.is-current { animation: none; }
+}
+.trivia { z-index: 2; }
+.conn { z-index: 3; }
+
+/* Занятый бан перечёркнут — читается, даже если иконка героя не загрузилась. */
+.ban { position: relative; }
+.ban:not(.ban--empty):not(.is-current)::after {
+  content: ''; position: absolute; left: 6px; right: 6px; top: 50%; height: 3px;
+  background: var(--dire); transform: rotate(-24deg);
+  box-shadow: 0 0 8px rgba(255,74,123,.8);
+}
+.ban:not(.ban--empty) { filter: none; }
+.ban:not(.ban--empty):not(.is-current)::before {
+  content: ''; position: absolute; inset: 0; background: rgba(6,5,13,.4);
+}

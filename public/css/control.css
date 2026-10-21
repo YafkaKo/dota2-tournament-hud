@@ -116,3 +116,10 @@ input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--accent); }
 .counter em { color: var(--muted); font-style: normal; margin: 0 6px; }
 
 .error { color: #F08E82; font-size: 12.5px; }
+
+.warning {
+  margin: 0 0 14px; padding: 12px 16px;
+  background: #3A1A0A; color: #FFC58A;
+  border: 1px solid #7A3A12; border-radius: 6px;
+  font-weight: 600;
+}

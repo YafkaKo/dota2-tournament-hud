@@ -22,6 +22,8 @@ const { WebSocketServer } = require('ws');
 const { MatchState } = require('./match');
 const { computeProbability } = require('./probability');
 const { OpenDotaEnricher } = require('./opendota');
+const { GsiLog } = require('./gsi-log');
+const { matchIdOf } = require('./snapshot');
 
 const ROOT = path.join(__dirname, '..');
 const CONFIG = loadConfig();
@@ -33,6 +35,12 @@ const PORT = CONFIG.port;
 const match = new MatchState({ file: path.join(ROOT, 'data', 'match.json') });
 let gsiUpdatedAt = 0;          // когда пришёл последний пакет любого вида
 let probability = null;        // последняя посчитанная вероятность (с разбивкой)
+
+// Защита от двух источников данных сразу. Если параллельно с игрой забыли
+// выключить имитатор или данные шлют два клиента с разными матчами, сервер
+// раньше прыгал между ними на каждом пакете и сбрасывал состояние матча.
+const sources = { realAt: 0, mockAt: 0, currentIdAt: 0, currentFromMock: false, conflictAt: 0, conflictId: null };
+const gsiLog = new GsiLog(CONFIG.gsiLog, ROOT);
 
 // Модель вероятности перечитывается при изменении файла — удобно подбирать коэффициенты.
 const MODEL_FILE = path.join(ROOT, 'config', 'probability.json');
@@ -66,6 +74,13 @@ function defaultControl() {
     showHud: true,
     panels: { networth: true, objectives: true, rosters: false },
     trivia: { show: false, title: '', text: '' },
+    // Фон полноэкранных сцен: адрес картинки или видео. Пусто — стандартный фон.
+    // scenes.<сцена> важнее all. dim — затемнение поверх фона, 0–80 %.
+    background: {
+      all: '',
+      scenes: { starting: '', break: '', bracket: '', results: '', scoreboard: '', mapResults: '', draft: '' },
+      dim: 40
+    },
     triviaLibrary: [],              // заготовленные факты: [{ title, text }]
     probability: { show: false },   // плашка вероятности победы
     mapResults: { show: false }     // плашка итогов карты
@@ -98,7 +113,8 @@ function loadConfig() {
     requireToken: true,
     results: { autoShow: true },
     comparison: { minAgeSec: 300, autoSnapshotEverySec: 0 },
-    opendota: { enabled: true }
+    opendota: { enabled: true },
+    gsiLog: { enabled: false, onlyDraft: true, compact: true }
   };
   try {
     const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'server.json'), 'utf8'));
@@ -172,9 +188,14 @@ app.post(['/gsi', '/'], (req, res) => {
   delete body.previously;     // служебные диффы GSI нам не нужны
   delete body.added;
 
+  res.status(200).end();
+
+  const verdict = checkSource(body);
+  gsiLog.write(body, verdict);
+  if (verdict !== 'accepted') return;
+
   gsiUpdatedAt = Date.now();
   const result = match.ingest(body);
-  res.status(200).end();
 
   if (result.ignored) return;  // heartbeat без данных матча — снимок не трогаем
 
@@ -203,6 +224,50 @@ app.post(['/gsi', '/'], (req, res) => {
   pushMatch();
 });
 
+/**
+ * Решает, принимать ли пакет. Возвращает 'accepted' или причину отказа.
+ *   — пакеты имитатора игнорируются, пока идут данные из настоящей игры;
+ *   — пакет с другим matchid игнорируется, пока текущий матч ещё присылает
+ *     данные (значит, это второй клиент, а не новая карта).
+ */
+function checkSource(body) {
+  const now = Date.now();
+  const isMock = !!(body.provider && body.provider.mock);
+
+  if (isMock) {
+    sources.mockAt = now;
+    if (now - sources.realAt < 10000) return 'ignored: имитатор, пока идут данные из игры';
+  } else if (body.map && body.map.game_state) {
+    // Пакеты из главного меню (без матча) не считаем: с открытой в меню Dota имитатор должен работать.
+    sources.realAt = now;
+  }
+
+  const id = matchIdOf(body);
+  if (id && match.matchId && id === match.matchId) sources.currentIdAt = now;
+  // Настоящая игра всегда важнее имитатора: если текущий матч пришёл из имитатора,
+  // данные игры принимаются сразу.
+  const realOverMock = !isMock && sources.currentFromMock;
+  if (id && match.matchId && id !== match.matchId && now - sources.currentIdAt < 5000 && !realOverMock) {
+    sources.conflictAt = now;
+    sources.conflictId = id;
+    return `ignored: второй матч ${id}, пока идёт ${match.matchId}`;
+  }
+  if (id) { sources.currentFromMock = isMock; sources.currentIdAt = now; }
+  return 'accepted';
+}
+
+/** Предупреждение для пультов, если данные приходят из двух мест. */
+function sourceWarning() {
+  const now = Date.now();
+  if (now - sources.mockAt < 10000 && now - sources.realAt < 10000) {
+    return 'Одновременно идут данные из игры и из имитатора. Закройте окно start-test-data.bat — данные имитатора сейчас игнорируются.';
+  }
+  if (now - sources.conflictAt < 10000) {
+    return `Данные приходят сразу по двум матчам (${match.matchId} и ${sources.conflictId}). Оставьте один клиент-наблюдатель с этим .cfg.`;
+  }
+  return null;
+}
+
 app.get('/api/state', (req, res) => {
   res.json({ control, gsi: match.live, match: matchView(), gsiAge: gsiUpdatedAt ? Date.now() - gsiUpdatedAt : null });
 });
@@ -225,6 +290,65 @@ app.post('/api/toggle/:key', (req, res) => {
 app.post('/api/control/reset', (req, res) => {
   setControl(defaultControl());
   res.json(control);
+});
+
+// ---------------------------------------------------------------- фоны заставок
+
+const BG_DIR = path.join(ROOT, 'public', 'assets', 'backgrounds');
+const BG_MAX = 20 * 1024 * 1024;
+const BG_TYPES = {
+  'image/jpeg': { ext: '.jpg', magic: (b) => b[0] === 0xFF && b[1] === 0xD8 },
+  'image/png':  { ext: '.png', magic: (b) => b.slice(0, 4).toString('hex') === '89504e47' },
+  'image/webp': { ext: '.webp', magic: (b) => b.slice(0, 4).toString() === 'RIFF' && b.slice(8, 12).toString() === 'WEBP' },
+  'video/mp4':  { ext: '.mp4', magic: (b) => b.slice(4, 8).toString() === 'ftyp' },
+  'video/webm': { ext: '.webm', magic: (b) => b.slice(0, 4).toString('hex') === '1a45dfa3' }
+};
+
+// Загрузка файла фона. Тело запроса — сам файл, имя — в заголовке X-File-Name.
+app.post('/api/backgrounds',
+  express.raw({ type: Object.keys(BG_TYPES), limit: BG_MAX }),
+  (req, res) => {
+    const type = String(req.headers['content-type'] || '').split(';')[0].trim();
+    const kind = BG_TYPES[type];
+    if (!kind) return res.status(415).json({ error: 'Подходят только JPG, PNG, WebP, MP4 и WebM' });
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ error: 'Файл пустой' });
+    if (!kind.magic(req.body)) return res.status(415).json({ error: 'Содержимое файла не похоже на ' + kind.ext.slice(1).toUpperCase() });
+
+    const original = decodeURIComponent(String(req.headers['x-file-name'] || 'фон'));
+    const base = original.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'background';
+    const name = `${Date.now()}-${base}${kind.ext}`;
+    fs.mkdirSync(BG_DIR, { recursive: true });
+    fs.writeFileSync(path.join(BG_DIR, name), req.body);
+    console.log(`[background] загружен ${name} (${Math.round(req.body.length / 1024)} КБ)`);
+    res.json({ url: `/assets/backgrounds/${encodeURIComponent(name)}`, name, size: req.body.length });
+  });
+
+app.get('/api/backgrounds', (req, res) => {
+  let files = [];
+  try {
+    files = fs.readdirSync(BG_DIR)
+      .filter((f) => /\.(jpe?g|png|webp|mp4|webm)$/i.test(f))
+      .map((f) => {
+        const st = fs.statSync(path.join(BG_DIR, f));
+        return { name: f, url: `/assets/backgrounds/${encodeURIComponent(f)}`, size: st.size, at: st.mtimeMs };
+      })
+      .sort((a, b) => b.at - a.at);
+  } catch { /* папки ещё нет */ }
+  res.json(files);
+});
+
+app.delete('/api/backgrounds/:name', (req, res) => {
+  const name = path.basename(req.params.name);
+  const file = path.join(BG_DIR, name);
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'Файла уже нет' });
+  fs.unlinkSync(file);
+
+  // Если удалённый файл где-то стоял фоном — возвращаем стандартный.
+  const url = `/assets/backgrounds/${encodeURIComponent(name)}`;
+  const bg = control.background;
+  const scenes = Object.fromEntries(Object.entries(bg.scenes).map(([k, v]) => [k, v === url ? '' : v]));
+  setControl(mergeDeep(control, { background: { all: bg.all === url ? '' : bg.all, scenes } }));
+  res.json({ ok: true });
 });
 
 // Состояние карты: вероятность с разбивкой по признакам, снимки, статус OpenDota.
@@ -254,6 +378,8 @@ app.get('/api/health', (req, res) => {
     matchId: match.matchId,
     gameState: match.live?.map?.game_state ?? null,
     resultsFrozen: !!match.final,
+    warning: sourceWarning(),
+    gsiLog: gsiLog.file ? { file: path.relative(ROOT, gsiLog.file), packets: gsiLog.count } : null,
     clients: wss ? wss.clients.size : 0
   });
 });
@@ -270,7 +396,7 @@ wss.on('connection', (ws) => {
   send(ws, { type: 'control', data: control });
   if (match.live) send(ws, { type: 'gsi', data: match.live });
   send(ws, { type: 'match', data: matchView() });
-  send(ws, { type: 'status', data: { gsiConnected: isGsiConnected() } });
+  send(ws, { type: 'status', data: statusData() });
   ws.on('error', () => {});
 });
 
@@ -316,10 +442,14 @@ function isGsiConnected() {
   return gsiUpdatedAt > 0 && Date.now() - gsiUpdatedAt < 15000;
 }
 
-// Раз в 5 секунд сообщаем клиентам, идут ли данные из игры.
+// Раз в 2 секунды сообщаем клиентам, идут ли данные из игры и нет ли конфликта источников.
 setInterval(() => {
-  broadcast({ type: 'status', data: { gsiConnected: isGsiConnected() } });
-}, 5000);
+  broadcast({ type: 'status', data: statusData() });
+}, 2000);
+
+function statusData() {
+  return { gsiConnected: isGsiConnected(), warning: sourceWarning() };
+}
 
 // ---------------------------------------------------------------- утилиты
 
@@ -345,6 +475,15 @@ function lanAddresses() {
   }
   return out;
 }
+
+// Понятные ответы на ошибки загрузки (например, файл больше 20 МБ).
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: req.path.startsWith('/api/backgrounds') ? 'Файл больше 20 МБ' : 'Слишком большой запрос' });
+  }
+  if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Не разобрал данные запроса' });
+  next(err);
+});
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

@@ -15,7 +15,11 @@ function connect() {
     if (msg.type === 'control') { state = msg.data; fill(); }
     if (msg.type === 'gsi') $('dotGsi').classList.add('on');
     if (msg.type === 'match') { match = msg.data; renderMatchInfo(); }
-    if (msg.type === 'status') $('dotGsi').classList.toggle('on', msg.data.gsiConnected);
+    if (msg.type === 'status') {
+      $('dotGsi').classList.toggle('on', msg.data.gsiConnected);
+      $('sourceWarning').hidden = !msg.data.warning;
+      $('sourceWarning').textContent = msg.data.warning || '';
+    }
   };
   ws.onclose = () => {
     $('dotWs').classList.remove('on');
@@ -27,13 +31,22 @@ function connect() {
 connect();
 
 async function patch(partial) {
-  state = await fetch('/api/control', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(partial)
-  }).then(r => r.json());
-  fill();
+  try {
+    state = await fetch('/api/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial)
+    }).then(r => r.json());
+    fill();
+    return true;
+  } catch {
+    return false;
+  }
 }
+
+/* ----------------------------------------------------------- фон заставок */
+
+const updateBackgrounds = createBackgroundPanel($('bgPanel'), { patch, toast: () => {} });
 
 /* ----------------------------------------------------------- привязка полей */
 
@@ -59,6 +72,8 @@ function fill() {
   document.querySelectorAll('.scenes button').forEach(b => {
     b.classList.toggle('active', b.dataset.scene === state.scene);
   });
+
+  updateBackgrounds(state);
 
   $('radWins').textContent = state.series.radiantWins;
   $('direWins').textContent = state.series.direWins;

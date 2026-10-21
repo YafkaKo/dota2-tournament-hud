@@ -32,7 +32,11 @@ function connect() {
     const msg = JSON.parse(e.data);
     if (msg.type === 'control') control = msg.data;
     if (msg.type === 'match') match = msg.data;
-    if (msg.type === 'status') $('dotGsi').classList.toggle('on', msg.data.gsiConnected);
+    if (msg.type === 'status') {
+      $('dotGsi').classList.toggle('on', msg.data.gsiConnected);
+      $('sourceWarning').hidden = !msg.data.warning;
+      $('sourceWarning').textContent = msg.data.warning || '';
+    }
     if (msg.type !== 'gsi') render();
   };
   ws.onclose = () => {
@@ -99,6 +103,10 @@ document.addEventListener('change', (e) => {
   }
 });
 
+/* ----------------------------------------------------------- фон заставок */
+
+const updateBackgrounds = createBackgroundPanel($('bgPanel'), { patch, toast: (t) => toast(t) });
+
 /* ----------------------------------------------------------- отрисовка */
 
 function render() {
@@ -143,6 +151,7 @@ function render() {
   renderResults(rad, dire);
   renderTrivia();
   renderCountdown();
+  updateBackgrounds(control);
 }
 
 function renderProbability(rad, dire) {

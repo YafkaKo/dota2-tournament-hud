@@ -33,7 +33,7 @@ function connect() {
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
     if (msg.type === 'control') control = msg.data;
-    if (msg.type === 'gsi') gsi = msg.data;
+    if (msg.type === 'gsi') { gsi = msg.data; syncDraftClock(); }
     if (msg.type === 'match') match = msg.data;
     if (msg.type === 'status') return;
     render();
@@ -50,11 +50,18 @@ function connect() {
 
 connect();
 setInterval(tickCountdown, 250);
+setInterval(tickDraftClock, 100);
 
 /* ----------------------------------------------------------- сцены */
 
 function render() {
   if (!control) return;
+
+  // «Чистый экран»: оверлей не рисует вообще ничего — ни графику, ни плашки,
+  // ни фон. Остальное состояние не трогаем, поэтому при возврате всё как было.
+  const blank = control.scene === 'blank';
+  document.body.classList.toggle('is-blank', blank);
+  if (blank) return;
 
   const drafting = control.scene === 'auto' && isDrafting(gsi);
   const manual = control.scene !== 'auto' && control.scene !== 'blank';
@@ -77,6 +84,47 @@ function render() {
   renderWinProb();
   renderMapResults();
   renderTrivia();
+  renderBackground(drafting);
+}
+
+/* ----------------------------------------------------------- фон заставок */
+
+// Какие полноэкранные сцены получают фон. Ключи совпадают с control.background.scenes.
+const BG_SCENES = ['starting', 'break', 'bracket', 'results', 'scoreboard'];
+
+function renderBackground(drafting) {
+  const bg = control.background || {};
+  let key = null;
+  if (control.mapResults?.show && match?.results) key = 'mapResults';
+  else if (drafting) key = 'draft';
+  else if (BG_SCENES.includes(control.scene)) key = control.scene;
+
+  const url = key ? ((bg.scenes && bg.scenes[key]) || bg.all || '') : '';
+  const layer = $('sceneBg');
+  // Пока своего фона нет, сцены рисуют стандартный градиент сами.
+  document.body.classList.toggle('has-custom-bg', !!url);
+  layer.hidden = !url;
+  if (!url) return;
+
+  const dim = Math.max(0, Math.min(80, Number(bg.dim ?? 40)));
+  $('sceneBgDim').style.opacity = String(dim / 100);
+
+  const isVideo = /\.(mp4|webm)(\?|#|$)/i.test(url);
+  const img = $('sceneBgImage');
+  const video = $('sceneBgVideo');
+  img.hidden = isVideo;
+  video.hidden = !isVideo;
+  if (isVideo) {
+    if (video.dataset.src !== url) {
+      video.dataset.src = url;
+      video.src = url;
+      video.play().catch(() => {});
+    }
+  } else {
+    if (video.dataset.src) { video.pause(); video.removeAttribute('src'); video.dataset.src = ''; video.load(); }
+    const css = `url("${url.replace(/"/g, '%22')}")`;
+    if (img.dataset.src !== url) { img.dataset.src = url; img.style.backgroundImage = css; }
+  }
 }
 
 /* ----------------------------------------------------------- шапка */
@@ -212,48 +260,157 @@ function playerRow({ player, hero, items }) {
 
 /* ----------------------------------------------------------- драфт */
 
+// Драфт рисуется ровно по тому, что прислала игра: пики и баны каждой команды
+// в порядке слотов pickN/banN — в этом порядке Dota их и заполняет. Свою логику
+// фаз оверлей не ведёт, поэтому не может «убежать» от игры.
 function renderDraft() {
   const draft = gsi?.draft || {};
-  $('draftRadName').textContent = control.radiant.name || 'Radiant';
-  $('draftDireName').textContent = control.dire.name || 'Dire';
+  const radName = control.radiant.name || 'Radiant';
+  const direName = control.dire.name || 'Dire';
+  $('draftRadName').textContent = radName;
+  $('draftDireName').textContent = direName;
 
-  const active = draft.activeteam;
-  const phase = draft.pick ? 'выбирает' : 'банит';
-  const who = active === 2 ? (control.radiant.name || 'Radiant')
-            : active === 3 ? (control.dire.name || 'Dire') : '';
-  $('draftPhase').textContent = who ? `${who} ${phase}` : 'Подготовка к драфту';
+  const strategy = gsi?.map?.game_state === 'DOTA_GAMERULES_STATE_STRATEGY_TIME';
+  const active = strategy ? 0 : Number(draft.activeteam);
+  const who = active === 2 ? radName : active === 3 ? direName : '';
+  $('draftPhase').textContent = strategy ? 'Время стратегии'
+    : who ? `${who} ${draft.pick ? 'выбирает героя' : 'банит'}` : 'Подготовка к драфту';
+  $('draftRadSide').classList.toggle('is-active', active === 2);
+  $('draftDireSide').classList.toggle('is-active', active === 3);
 
-  const left = Number(draft.activeteam_time_remaining);
-  $('draftTimer').textContent = Number.isFinite(left) ? clock(left) : '—';
+  // Текущий ход подсвечиваем у активной команды: следующий пустой пик или бан.
+  const current = (team) => (Number(active) === team && !strategy ? (draft.pick ? 'pick' : 'ban') : null);
+  $('draftRadPicks').innerHTML = picks(draft.team2, current(2) === 'pick');
+  $('draftDirePicks').innerHTML = picks(draft.team3, current(3) === 'pick');
+  $('draftRadBans').innerHTML = bans(draft.team2, current(2) === 'ban');
+  $('draftDireBans').innerHTML = bans(draft.team3, current(3) === 'ban');
 
-  $('draftRadPicks').innerHTML = picks(draft.team2, 5);
-  $('draftDirePicks').innerHTML = picks(draft.team3, 5);
-  $('draftRadBans').innerHTML = bans(draft.team2, 7);
-  $('draftDireBans').innerHTML = bans(draft.team3, 7);
+  renderDraftClock();
 }
 
-function picks(team, count) {
-  let html = '';
+/** Слоты команды: pick0..pickN или ban0..banN — сколько прислала игра, но не меньше min. */
+function draftSlots(team, kind, min) {
+  let count = min;
+  for (const key of Object.keys(team || {})) {
+    const m = key.match(new RegExp(`^${kind}(\\d+)_(class|id)$`));
+    if (m) count = Math.max(count, Number(m[1]) + 1);
+  }
+  const out = [];
   for (let i = 0; i < count; i++) {
-    const name = team?.[`pick${i}_class`];
+    const cls = team?.[`${kind}${i}_class`] || '';
+    const id = Number(team?.[`${kind}${i}_id`]);
+    // Бывает, что id героя уже пришёл, а имя класса ещё нет — слот всё равно занят.
+    out.push({ name: cls, filled: !!cls || id > 0 });
+  }
+  return out;
+}
+
+function picks(team, highlightNext) {
+  let next = highlightNext;
+  return draftSlots(team, 'pick', 5).map(({ name, filled }) => {
     const img = heroImage(name);
-    html += `
-      <div class="pick ${name ? '' : 'pick--empty'}">
+    const isCurrent = next && !filled;
+    if (isCurrent) next = false;
+    return `
+      <div class="pick ${filled ? '' : 'pick--empty'} ${isCurrent ? 'is-current' : ''}">
         <div class="pick__img" style="${img ? `background-image:url('${img}'),${FALLBACK}` : ''}"></div>
-        <div class="pick__name">${escapeHtml(heroLabel(name)) || '—'}</div>
+        <div class="pick__name">${filled ? (escapeHtml(heroLabel(name)) || 'Герой') : (isCurrent ? 'выбирает…' : '—')}</div>
       </div>`;
-  }
-  return html;
+  }).join('');
 }
 
-function bans(team, count) {
-  let html = '';
-  for (let i = 0; i < count; i++) {
-    const name = team?.[`ban${i}_class`];
+function bans(team, highlightNext) {
+  let next = highlightNext;
+  return draftSlots(team, 'ban', 7).map(({ name, filled }) => {
     const img = heroImage(name);
-    html += `<div class="ban ${name ? '' : 'ban--empty'}" style="${img ? `background-image:url('${img}'),${FALLBACK}` : ''}"></div>`;
+    const isCurrent = next && !filled;
+    if (isCurrent) next = false;
+    return `<div class="ban ${filled ? '' : 'ban--empty'} ${isCurrent ? 'is-current' : ''}" style="${img ? `background-image:url('${img}'),${FALLBACK}` : ''}"></div>`;
+  }).join('');
+}
+
+/* ----------------------------------------------------------- таймер драфта
+
+   Игра присылает остаток основного времени хода (activeteam_time_remaining)
+   и резерв каждой команды (radiant_bonus_time, dire_bonus_time). Между пакетами
+   таймер идёт локально, но каждый пакет его выравнивает, а дольше 1 секунды
+   без пакета локальный ход не продолжается — разойтись с игрой больше чем
+   на секунду нельзя. На паузе таймер стоит. */
+
+let draftClock = null;
+
+function num(v) {
+  const n = Number(v);
+  return v === undefined || v === null || v === '' || !Number.isFinite(n) ? null : n;
+}
+
+function syncDraftClock() {
+  const d = gsi?.draft;
+  if (!d) { draftClock = null; return; }
+  draftClock = {
+    main: num(d.activeteam_time_remaining),
+    reserve: { 2: num(d.radiant_bonus_time), 3: num(d.dire_bonus_time) },
+    active: Number(d.activeteam),
+    paused: !!gsi?.map?.paused,
+    strategy: gsi?.map?.game_state === 'DOTA_GAMERULES_STATE_STRATEGY_TIME',
+    at: performance.now()
+  };
+}
+
+function tickDraftClock() {
+  if (draftClock && !$('sceneDraft').hidden) renderDraftClock();
+}
+
+function renderDraftClock() {
+  const c = draftClock;
+  const timer = $('draftTimer');
+  const label = $('draftTimerLabel');
+  const clockBox = $('draftClock');
+
+  if (!c) {
+    timer.textContent = '—';
+    label.textContent = '';
+    $('draftRadReserve').textContent = '';
+    $('draftDireReserve').textContent = '';
+    return;
   }
-  return html;
+
+  const elapsed = c.paused ? 0 : Math.min(1, (performance.now() - c.at) / 1000);
+  let main = c.main;
+  const reserve = { ...c.reserve };
+  let usingReserve = false;
+
+  if (main !== null) {
+    const left = main - elapsed;
+    if (main > 0 && left >= 0) {
+      main = left;
+    } else {
+      // Основное время вышло (или вышло между пакетами) — тикает резерв активной команды.
+      usingReserve = !c.strategy && (c.active === 2 || c.active === 3) && reserve[c.active] !== null;
+      if (usingReserve) reserve[c.active] = Math.max(0, reserve[c.active] - Math.max(0, elapsed - Math.max(0, main)));
+      main = 0;
+    }
+  }
+
+  // Резерв обеих команд — всегда под названиями. Если игра его не прислала, строки нет.
+  for (const [team, el] of [[2, 'draftRadReserve'], [3, 'draftDireReserve']]) {
+    $(el).textContent = reserve[team] !== null ? `резерв ${clock(Math.ceil(reserve[team]))}` : '';
+    $(el).classList.toggle('is-ticking', usingReserve && c.active === team);
+  }
+
+  if (c.strategy) {
+    timer.textContent = main !== null && main > 0 ? clock(Math.ceil(main)) : '—';
+    label.textContent = 'стратегия';
+  } else if (usingReserve) {
+    timer.textContent = clock(Math.ceil(reserve[c.active]));
+    label.textContent = 'резервное время';
+  } else {
+    timer.textContent = main !== null ? clock(Math.ceil(main)) : '—';
+    label.textContent = main !== null ? 'основное время' : '';
+  }
+  clockBox.classList.toggle('is-reserve', usingReserve);
+  clockBox.classList.toggle('is-paused', c.paused);
+  if (c.paused) label.textContent = 'пауза';
 }
 
 /* ----------------------------------------------------------- заставки */

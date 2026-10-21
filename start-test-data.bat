@@ -1,40 +1,33 @@
 @echo off
-chcp 65001 >nul
-title Тестовые данные вместо Dota 2
+rem Test data instead of Dota 2. The menu itself is in tools\test-menu.js.
+title HUD test data
 cd /d "%~dp0"
+where node >nul 2>nul
+if errorlevel 1 goto nonode
+if exist node_modules goto run
+echo.
+echo First run: installing dependencies, please wait...
+echo.
+call npm install
+if errorlevel 1 goto installfail
 
-echo Выберите, что имитировать:
-echo   1 - матч в разгаре
-echo   2 - стадия драфта
-echo   3 - конец карты (итоги, потом выход в меню)
-echo   4 - быстрая игра x10 с паузами (проверка сравнения вероятности)
-echo   5 - новая карта с другим matchid
-set /p mode=Номер: 
-
-if "%mode%"=="2" goto draft
-if "%mode%"=="3" goto ending
-if "%mode%"=="4" goto fast
-if "%mode%"=="5" goto newmatch
-goto game
-
-:draft
-node tools\mock-gsi.js --draft
-goto end
-
-:ending
-node tools\mock-gsi.js --end
-goto end
-
-:fast
-node tools\mock-gsi.js --speed=10 --pause
-goto end
-
-:newmatch
-node tools\mock-gsi.js --match=7900000002
-goto end
-
-:game
-node tools\mock-gsi.js
-
-:end
+:run
+node tools\test-menu.js
 pause
+exit /b 0
+
+:nonode
+echo.
+echo Node.js not found on this PC.
+echo Install Node.js 18 or newer (LTS) from https://nodejs.org
+echo then close this window and run the file again.
+echo.
+pause
+exit /b 1
+
+:installfail
+echo.
+echo "npm install" failed. Check the internet connection and Node.js version (node -v).
+echo.
+pause
+exit /b 1

@@ -6,6 +6,7 @@
 <title>Пульт трансляции</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/control.css">
+<link rel="stylesheet" href="css/backgrounds.css">
 </head>
 <body>
 
@@ -19,6 +20,8 @@
     <span class="dot" id="dotGsi"></span> данные из игры
   </div>
 </header>
+
+<p class="warning" id="sourceWarning" hidden></p>
 
 <main>
 
@@ -140,6 +143,12 @@
   <label class="field"><span>Текст</span><input data-path="trivia.text"></label>
 </section>
 
+<section class="card">
+  <h2>Фон заставок</h2>
+  <p class="hint">Картинка или видео за полноэкранными сценами. Можно задать общий фон и отдельный для любой сцены.</p>
+  <div id="bgPanel"></div>
+</section>
+
 <section class="card card--wide">
   <h2>Турнирная сетка</h2>
   <p class="hint">Вставьте JSON. Формат: массив раундов, в каждом — матчи с двумя сторонами.
@@ -163,6 +172,7 @@
 
 </main>
 
+<script src="js/backgrounds.js"></script>
 <script src="js/control.js"></script>
 </body>
 </html>

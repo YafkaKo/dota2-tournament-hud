@@ -7,6 +7,13 @@
 </head>
 <body class="is-loading">
 
+<!-- Фон полноэкранных сцен (картинка или видео). Задаётся на пульте. -->
+<div class="scene-bg" id="sceneBg" hidden>
+  <div class="scene-bg__media" id="sceneBgImage"></div>
+  <video class="scene-bg__media" id="sceneBgVideo" muted loop playsinline autoplay hidden></video>
+  <div class="scene-bg__dim" id="sceneBgDim"></div>
+</div>
+
 <!-- ============================ ИГРОВОЙ СЛОЙ ============================ -->
 <div class="layer layer-game" id="layerGame">
 
@@ -110,12 +117,19 @@
 <!-- ============================ ДРАФТ ============================ -->
 <section class="layer layer-full draft" id="sceneDraft" hidden>
   <div class="draft__head">
-    <div class="draft__team draft__team--rad" id="draftRadName">Radiant</div>
-    <div class="draft__clock">
+    <div class="draft__side draft__side--rad" id="draftRadSide">
+      <div class="draft__team draft__team--rad" id="draftRadName">Radiant</div>
+      <div class="draft__reserve" id="draftRadReserve">резерв —</div>
+    </div>
+    <div class="draft__clock" id="draftClock">
       <div class="draft__phase" id="draftPhase">Стадия выбора</div>
       <div class="draft__timer" id="draftTimer">—</div>
+      <div class="draft__timer-label" id="draftTimerLabel">основное время</div>
     </div>
-    <div class="draft__team draft__team--dire" id="draftDireName">Dire</div>
+    <div class="draft__side draft__side--dire" id="draftDireSide">
+      <div class="draft__team draft__team--dire" id="draftDireName">Dire</div>
+      <div class="draft__reserve" id="draftDireReserve">резерв —</div>
+    </div>
   </div>
   <div class="draft__body">
     <div class="draft__col" id="draftRadPicks"></div>

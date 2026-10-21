@@ -11,6 +11,7 @@
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <title>Пульт трансляции</title>
 <link rel="stylesheet" href="/css/caster.css">
+<link rel="stylesheet" href="/css/backgrounds.css">
 </head>
 <body>
 
@@ -30,6 +31,7 @@
 </header>
 
 <div class="offline" id="offline" hidden>Нет связи с сервером. Переподключаюсь…</div>
+<div class="offline offline--warn" id="sourceWarning" hidden></div>
 
 <main>
 
@@ -75,7 +77,7 @@
       <label class="sw"><span><b>Вся графика</b><i>верхняя лента и всё остальное</i></span><input type="checkbox" data-path="showHud"><em aria-hidden="true"></em></label>
       <label class="sw"><span><b>Полоса золота</b><i>разница нетворса</i></span><input type="checkbox" data-path="panels.networth"><em aria-hidden="true"></em></label>
       <label class="sw"><span><b>Рошан</b><i>жив или таймер</i></span><input type="checkbox" data-path="panels.objectives"><em aria-hidden="true"></em></label>
-      <label class="sw"><span><b>Составы команд</b><i>большая панель, только на паузах</i></span><input type="checkbox" data-path="panels.rosters"><em aria-hidden="true"></em></label>
+      <label class="sw"><span><b>Составы команд</b><i>Большая панель</i></span><input type="checkbox" data-path="panels.rosters"><em aria-hidden="true"></em></label>
       <label class="sw"><span><b>Комментаторы</b><i>плашка с именами</i></span><input type="checkbox" data-path="casters.show"><em aria-hidden="true"></em></label>
       <label class="sw"><span><b>Trivia</b><i id="triviaHint">текст — во вкладке «Тексты»</i></span><input type="checkbox" data-path="trivia.show"><em aria-hidden="true"></em></label>
     </div>
@@ -169,6 +171,12 @@
     <label class="field"><span>Бегущая строка</span><input data-path="ticker" placeholder="пусто — выключена" autocomplete="off"></label>
   </section>
 
+  <!-- ============================ ФОН ============================ -->
+  <section class="panel" id="tab-bg" data-tab="bg">
+    <h2>Фон заставок</h2>
+    <div id="bgPanel"></div>
+  </section>
+
 </main>
 
 <!-- Нижние вкладки: на телефоне так удобнее большим пальцем -->
@@ -177,11 +185,13 @@
   <button type="button" data-goto="overlays">Плашки</button>
   <button type="button" data-goto="match">Матч</button>
   <button type="button" data-goto="texts">Тексты</button>
+  <button type="button" data-goto="bg">Фон</button>
 </nav>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/js/dota.js"></script>
+<script src="/js/backgrounds.js"></script>
 <script src="/js/caster.js"></script>
 </body>
 </html>

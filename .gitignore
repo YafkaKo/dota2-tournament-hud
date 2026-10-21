@@ -1,4 +1,6 @@
 node_modules/
 agent/node_modules/
 data/*.json
+data/gsi-log/
+public/assets/backgrounds/
 *.log

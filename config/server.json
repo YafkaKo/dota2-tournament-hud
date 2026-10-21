@@ -2,22 +2,34 @@
   "port": 3000,
   "token": "arena-hud",
   "requireToken": true,
-
   "results": {
     "autoShow": true
   },
-
   "comparison": {
     "minAgeSec": 300,
     "autoSnapshotEverySec": 0
   },
-
   "opendota": {
     "enabled": true,
     "baseUrl": "https://api.opendota.com/api",
     "apiKey": "",
     "requestParse": true,
     "timeoutMs": 10000,
-    "retryDelaysSec": [20, 40, 60, 120, 180, 300, 300, 600, 600]
+    "retryDelaysSec": [
+      20,
+      40,
+      60,
+      120,
+      180,
+      300,
+      300,
+      600,
+      600
+    ]
+  },
+  "gsiLog": {
+    "enabled": false,
+    "onlyDraft": true,
+    "compact": true
   }
 }

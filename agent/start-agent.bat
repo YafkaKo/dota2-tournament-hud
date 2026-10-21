@@ -1,24 +1,33 @@
 @echo off
-chcp 65001 >nul
-title Агент хоткеев трансляции
+rem Hotkey agent for the PC running Dota 2.
+title HUD hotkey agent
 cd /d "%~dp0"
-
+where node >nul 2>nul
+if errorlevel 1 goto nonode
 if exist node_modules goto run
-
 echo.
-echo Первый запуск: ставлю зависимости агента...
+echo First run: installing dependencies, please wait...
 echo.
 call npm install
 if errorlevel 1 goto installfail
-goto run
-
-:installfail
-echo.
-echo Не удалось поставить зависимости. Проверьте, что установлен Node.js 18+.
-echo.
-pause
-exit /b 1
 
 :run
 node agent.js
 pause
+exit /b 0
+
+:nonode
+echo.
+echo Node.js not found on this PC.
+echo Install Node.js 18 or newer (LTS) from https://nodejs.org
+echo then close this window and run the file again.
+echo.
+pause
+exit /b 1
+
+:installfail
+echo.
+echo "npm install" failed. Check the internet connection and Node.js version (node -v).
+echo.
+pause
+exit /b 1
