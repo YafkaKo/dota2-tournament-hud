@@ -997,3 +997,8 @@ body.is-blank > * { display: none !important; }
 .ban:not(.ban--empty):not(.is-current)::before {
   content: ''; position: absolute; inset: 0; background: rgba(6,5,13,.4);
 }
+
+/* «Только фон» (control.bgOnly): на экране остаются фон сцены и сама сцена без содержимого.
+   Стандартный градиент сцены (если своего фона нет) тоже остаётся. */
+body.is-bg-only > *:not(#sceneBg):not(.is-bg-scene):not(#conn) { display: none !important; }
+body.is-bg-only .is-bg-scene > * { visibility: hidden !important; }

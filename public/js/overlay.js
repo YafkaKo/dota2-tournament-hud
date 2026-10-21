@@ -70,6 +70,13 @@ function render() {
   $('sceneDraft').hidden = !drafting;
   $('sceneStarting').hidden = control.scene !== 'starting';
   $('sceneBreak').hidden = control.scene !== 'break';
+
+  // «Только фон» для «Скоро начнём» и «Перерыва»: прячем всё, кроме фона сцены.
+  const bgOnly = (control.scene === 'starting' || control.scene === 'break') &&
+                 !!(control.bgOnly && control.bgOnly[control.scene]);
+  document.body.classList.toggle('is-bg-only', bgOnly);
+  $('sceneStarting').classList.toggle('is-bg-scene', bgOnly && control.scene === 'starting');
+  $('sceneBreak').classList.toggle('is-bg-scene', bgOnly && control.scene === 'break');
   $('sceneBracket').hidden = control.scene !== 'bracket';
   $('sceneResults').hidden = control.scene !== 'results';
   $('sceneScoreboard').hidden = control.scene !== 'scoreboard';

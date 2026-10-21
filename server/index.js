@@ -68,6 +68,8 @@ function defaultControl() {
     casters: { show: false, left: '', right: '', topic: '' },
     starting: { title: 'Трансляция скоро начнётся', subtitle: '', countdownTo: null },
     breakText: 'Технический перерыв',
+    // «Только фон»: заставка без текста и графики — остаётся один фон сцены.
+    bgOnly: { starting: false, break: false },
     results: { show: false, winner: 'radiant', note: '' },
     bracket: { title: 'Турнирная сетка', rounds: [] },
     ticker: '',
